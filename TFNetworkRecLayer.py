@@ -1601,8 +1601,9 @@ class _SubnetworkRecCell(object):
 
         if collected_choices:
           output_beam_size = self.layer_data_templates["output"].get_search_beam_size()
-          assert output_beam_size is not None
-          if fixed_seq_len is not None:
+          # Note: output_beam_size can be None, if output itself does not depend on any choice,
+          # which might be uncommon, but is valid.
+          if fixed_seq_len is not None and output_beam_size is not None:
             assert input_beam_size in (1, None)
             from TFUtil import tile_transposed
             fixed_seq_len = tile_transposed(fixed_seq_len, axis=0, multiples=output_beam_size)  # (batch * beam,)
@@ -1995,10 +1996,10 @@ class _SubnetworkRecCell(object):
       assert layer.search_choices
 
     search_choices = None
-    if collected_choices:
+    output_choice_base = self.net.get_search_choices(src=rec_layer.cell.net.layers["output"])
+    if collected_choices and output_choice_base:
       # Find next choice layer. Then iterate through its source choice layers through time
       # and resolve the output over time to be in line with the final output search choices.
-      output_choice_base = self.net.get_search_choices(src=rec_layer.cell.net.layers["output"])
       assert isinstance(output_choice_base, LayerBase)
       assert output_beam_size == output_choice_base.search_choices.beam_size
       initial_beam_choices = tf.range(0, output_beam_size)  # (beam_out,)
